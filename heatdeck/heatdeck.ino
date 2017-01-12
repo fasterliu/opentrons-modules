@@ -18,7 +18,7 @@
 
 
 
-double target_temperature = 30;
+double target_temperature = 50;
 
 
 
@@ -42,6 +42,10 @@ float temperatures[NUMSAMPLES];
 float prev_temperatures[NUMSAMPLES];
 unsigned long timestamp_current = 0;
 unsigned long timestamp_prev = 0;
+
+float movement_samples[NUMSAMPLES] = {0,};
+
+float prev_c_per_min = 0;
  
 void setup(void) {
   Serial.begin(115200);
@@ -55,6 +59,11 @@ void setup(void) {
   for (int i=0; i< NUMSAMPLES; i++) {
     prev_temperatures[i] = temperatures[i];
   }
+  get_average_temperature();
+  get_average_movement();
+  is_moving_toward();
+  get_average_temperature();
+  is_moving_toward;
 }
  
 void loop(void) {
@@ -75,7 +84,8 @@ void update_heat(){
   read_temperatures_to_buffer();
   float avg = get_average_temperature();
   float mov = get_average_movement();
-  Serial.print(avg);Serial.print('\t');Serial.println(int(mov));
+  Serial.print(avg);Serial.print('\t');Serial.print(int(mov));
+  Serial.print('\t');Serial.println(is_moving_toward());
   if (avg < target_temperature){
     digitalWrite(10, LOW);
   }
@@ -128,6 +138,30 @@ float get_average_movement(){
     average += temperatures[i] - prev_temperatures[i];
   }
   float time_difference = timestamp_current - timestamp_prev;
-  return (1000.0 / time_difference) * (average / NUMSAMPLES) * 60.0;  // C/min
+  average = average / NUMSAMPLES;
+  float c_per_min = (1.0 / time_difference) * average * 60.0 * 1000.0;
+  return c_per_min;
+}
+
+boolean is_moving_toward(){
+
+  float move_avg = get_average_movement();
+
+  if (int(move_avg) == 0){
+    return true;
+  }
+  if (temp_above() && move_avg > 0){
+    return true;
+  }
+  else if (!temp_above() && move_avg < 0){
+    return true;
+  }
+  else {
+    return false;
+  }
+}
+
+boolean temp_above(){
+  return (target_temperature - get_average_temperature()) > 0;
 }
 
