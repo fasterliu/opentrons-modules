@@ -18,7 +18,7 @@
 
 
 
-const double target_temperature = 50;
+double target_temperature = 30;
 
 
 
@@ -31,70 +31,103 @@ const double target_temperature = 50;
 #define TEMPERATURENOMINAL 25
 // how many samples to take and average, more takes longer
 // but is more 'smooth'
-#define NUMSAMPLES 5
+#define NUMSAMPLES 100
 // The beta coefficient of the thermistor (usually 3000-4000)
 double BCOEFFICIENT = 3250;
 // the value of the 'other' resistor
 #define SERIESRESISTOR 4700    
  
 int samples[NUMSAMPLES];
+float temperatures[NUMSAMPLES];
+float prev_temperatures[NUMSAMPLES];
+unsigned long timestamp_current = 0;
+unsigned long timestamp_prev = 0;
  
 void setup(void) {
   Serial.begin(115200);
+  Serial.setTimeout(30);
   pinMode(10, OUTPUT);
   digitalWrite(10, HIGH);
   pinMode(8, OUTPUT);
   digitalWrite(8, HIGH);
+
+  read_temperatures_to_buffer();
+  for (int i=0; i< NUMSAMPLES; i++) {
+    prev_temperatures[i] = temperatures[i];
+  }
 }
  
 void loop(void) {
-  uint8_t i;
-  float average;
- 
-  // take N samples in a row, with a slight delay
-  for (i=0; i< NUMSAMPLES; i++) {
-   samples[i] = 1023 - analogRead(THERMISTORPIN);
-   delay(10);
+  check_serial();
+  update_heat();
+}
+
+void check_serial(){
+  if (Serial.available()>0){
+    int val = Serial.parseInt();
+    if (val > 0){
+      target_temperature = val;
+    }
   }
- 
-  // average all the samples out
-  average = 0;
-  for (i=0; i< NUMSAMPLES; i++) {
-     average += samples[i];
-  }
-  average /= NUMSAMPLES;
- 
-//  Serial.print("Average analog reading "); 
-//  Serial.println(average);
- 
-  // convert the value to resistance
-  average = 1023 / average - 1;
-  average = SERIESRESISTOR / average;
+}
 
-//  Serial.print("Thermistor resistance "); 
-//  Serial.println(average);
- 
-  float steinhart;
-  steinhart = average / THERMISTORNOMINAL;     // (R/Ro)
-  steinhart = log(steinhart);                  // ln(R/Ro)
-  steinhart /= BCOEFFICIENT;                   // 1/B * ln(R/Ro)
-  steinhart += 1.0 / (TEMPERATURENOMINAL + 273.15); // + (1/To)
-  steinhart = 1.0 / steinhart;                 // Invert
-  steinhart -= 273.15;                         // convert to C
-
-  // scaling to get better accuracy from Heat Deck
-  steinhart = ((steinhart - TEMPERATURENOMINAL) * 1.05) + TEMPERATURENOMINAL;
- 
-  Serial.print("Temperature "); 
-  Serial.print(steinhart);
-  Serial.println(" *C");
-
-  if (steinhart < target_temperature){
+void update_heat(){
+  read_temperatures_to_buffer();
+  float avg = get_average_temperature();
+  float mov = get_average_movement();
+  Serial.print(avg);Serial.print('\t');Serial.println(int(mov));
+  if (avg < target_temperature){
     digitalWrite(10, LOW);
   }
   else {
     digitalWrite(10, HIGH);
   }
- 
-  delay(200);
 }
+
+void read_temperatures_to_buffer() {
+  // take N samples in a row
+  float sample;
+  timestamp_prev = timestamp_current;
+  timestamp_current = millis();
+  for (int i=0; i< NUMSAMPLES; i++) {
+    samples[i] = 1023 - analogRead(THERMISTORPIN);
+  }
+  // convert to temperature
+  for (int i=0; i< NUMSAMPLES; i++) {
+    sample = float(samples[i]);
+    // convert the value to resistance
+    sample = 1023 / sample - 1;
+    sample = SERIESRESISTOR / sample;
+
+    sample = sample / THERMISTORNOMINAL;     // (R/Ro)
+    sample = log(sample);                  // ln(R/Ro)
+    sample /= BCOEFFICIENT;                   // 1/B * ln(R/Ro)
+    sample += 1.0 / (TEMPERATURENOMINAL + 273.15); // + (1/To)
+    sample = 1.0 / sample;                 // Invert
+    sample -= 273.15;                         // convert to C
+
+    // scaling to get better accuracy from Heat Deck
+    sample = ((sample - TEMPERATURENOMINAL) * 1.05) + TEMPERATURENOMINAL;
+
+    prev_temperatures[i] = temperatures[i];
+    temperatures[i] = sample;
+  }
+}
+
+float get_average_temperature(){
+  float average = 0;
+  for (int i=0; i< NUMSAMPLES; i++) {
+    average += temperatures[i];
+  }
+  return average / NUMSAMPLES;
+}
+
+float get_average_movement(){
+  float average = 0;
+  for (int i=0; i< NUMSAMPLES; i++) {
+    average += temperatures[i] - prev_temperatures[i];
+  }
+  float time_difference = timestamp_current - timestamp_prev;
+  return (1000.0 / time_difference) * (average / NUMSAMPLES) * 60.0;  // C/min
+}
+
