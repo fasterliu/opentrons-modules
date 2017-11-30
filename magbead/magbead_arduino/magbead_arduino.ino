@@ -17,7 +17,7 @@
 
 int controlPin = 3;                 // pin received from Smoothie
 int upSwitchPin = 9;                // the upper homing switch
-int downSwitchPin = 8;              // the upper homing switch
+int downSwitchPin = 8;              // the lower homing switch
 
 #include <Stepper.h>
  
@@ -59,14 +59,15 @@ void setup() {
 }
  
 void loop() {
-  if(!digitalRead(controlPin) && !isUp){
-    isUp = true;
-    moveUp();
-  }
-  else if(digitalRead(controlPin) && isUp){
-    isUp = false;
-    moveDown();
-  }
+  checkCommand();
+//  if(!isUp){
+//    isUp = true;
+//    moveUp();
+//  }
+//  else if(isUp){
+//    isUp = false;
+//    moveDown();
+//  }
 }
 
 void moveUp() {

@@ -24,9 +24,9 @@ const double target_temperature = 50;
 
 
 // which analog pin to connect
-#define THERMISTORPIN A0         
+#define THERMISTORPIN A0
 // resistance at 25 degrees C
-#define THERMISTORNOMINAL 10000      
+#define THERMISTORNOMINAL 10000
 // temp. for nominal resistance (almost always 25 C)
 #define TEMPERATURENOMINAL 25
 // how many samples to take and average, more takes longer
@@ -35,47 +35,40 @@ const double target_temperature = 50;
 // The beta coefficient of the thermistor (usually 3000-4000)
 double BCOEFFICIENT = 3250;
 // the value of the 'other' resistor
-#define SERIESRESISTOR 4700    
- 
+#define SERIESRESISTOR 4700
+
+float running_sum = 0;
+int run = 0;
 int samples[NUMSAMPLES];
- 
+
 void setup(void) {
   Serial.begin(115200);
   pinMode(10, OUTPUT);
   digitalWrite(10, HIGH);
+  pinMode(9, OUTPUT);
+  digitalWrite(9, HIGH);
   pinMode(8, OUTPUT);
   digitalWrite(8, HIGH);
 }
- 
-void loop(void) {
-  uint8_t i;
-  float average;
- 
-  // take N samples in a row, with a slight delay
-  for (i=0; i< NUMSAMPLES; i++) {
-   samples[i] = 1023 - analogRead(THERMISTORPIN);
-   delay(10);
-  }
- 
-  // average all the samples out
-  average = 0;
-  for (i=0; i< NUMSAMPLES; i++) {
-     average += samples[i];
-  }
-  average /= NUMSAMPLES;
- 
-//  Serial.print("Average analog reading "); 
-//  Serial.println(average);
- 
-  // convert the value to resistance
-  average = 1023 / average - 1;
-  average = SERIESRESISTOR / average;
 
-//  Serial.print("Thermistor resistance "); 
-//  Serial.println(average);
- 
+float read_temp(void) {
+
+  uint8_t i;
+  float therm_reading;
+	float temp;
+
+  // take N samples in a row, with a slight delay
+	therm_reading = 1023 - analogRead(THERMISTORPIN);
+
+  // convert the value to resistance
+  temp = 1023 / therm_reading - 1;
+  temp = SERIESRESISTOR / temp;
+
+//  Serial.print("Thermistor resistance ");
+//  Serial.println(temp);
+
   float steinhart;
-  steinhart = average / THERMISTORNOMINAL;     // (R/Ro)
+  steinhart = temp / THERMISTORNOMINAL;     // (R/Ro)
   steinhart = log(steinhart);                  // ln(R/Ro)
   steinhart /= BCOEFFICIENT;                   // 1/B * ln(R/Ro)
   steinhart += 1.0 / (TEMPERATURENOMINAL + 273.15); // + (1/To)
@@ -84,17 +77,79 @@ void loop(void) {
 
   // scaling to get better accuracy from Heat Deck
   steinhart = ((steinhart - TEMPERATURENOMINAL) * 1.05) + TEMPERATURENOMINAL;
- 
-  Serial.print("Temperature "); 
-  Serial.print(steinhart);
-  Serial.println(" *C");
 
-  if (steinhart < target_temperature){
-    digitalWrite(10, LOW);
+  if (run % 1000 == 0) {
+    Serial.print("Temperature ");
+    Serial.print(steinhart);
+    Serial.println(" *C");
   }
-  else {
-    digitalWrite(10, HIGH);
-  }
- 
-  delay(200);
+  return steinhart;
+
+}
+
+
+float integral_component(float error){
+  float integ_comp, perc_error;
+  float integ_const = 10000;
+
+  perc_error = error / target_temperature;
+  if (abs(perc_error) < 0.20) {running_sum += error/integ_const;}
+  return running_sum; 
+}
+
+//Calculate output for heating/cooling
+float pid(float error) {
+  float prop_const = 10;
+  float deriv_const = 115200;
+  float prop_comp, integ_comp, deriv_comp;
+  // proportional component
+	prop_comp =  prop_const*error / target_temperature;
+  
+  
+	float output = prop_comp + integ_comp;
+//	Serial.print("OUTPUT: ");
+//  Serial.println(output);
+	return output;
+
+}
+
+
+void heat() {
+//  digitalWrite(8, HIGH); // turn fans off
+  digitalWrite(9, LOW);
+  digitalWrite(10, LOW);
+}
+
+
+void cool() {
+//  digitalWrite(8, HIGH); // turn fans on
+  digitalWrite(9, HIGH);
+  digitalWrite(10, HIGH);
+}
+
+void off() {
+//  digitalWrite(8, HIGH); // turn fans on
+  digitalWrite(9, LOW);
+  digitalWrite(10, HIGH);
+}
+
+
+
+void loop(void) {
+	float temp = read_temp();
+	float error = target_temperature - temp;
+	float pid_output = pid(error);
+
+	float ran = random(0, 100)/(float)100;
+
+//  Serial.print("PID OUTPUT: ");
+//  Serial.print(pid_output);
+
+	if (ran < pid_output) {
+		heat();
+	}
+	else {
+		  off();
+	}
+  run += 1;
 }
