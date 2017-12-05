@@ -2,7 +2,7 @@
 #define THERMISTORPIN A0
 #define TEMPERATURENOMINAL 25
 double BCOEFFICIENT = 3250;
-#define SERIESRESISTOR 4700
+#define SERIESRESISTOR 10000
 
 long lastSend;
 
@@ -35,6 +35,8 @@ float read_temp(void) {
   steinhart = ((steinhart - TEMPERATURENOMINAL) * 1.05) + TEMPERATURENOMINAL;
 
   if(tempSending && 1000 < (millis()-lastSend) ) {
+    Serial.print("output: ");
+    Serial.println(outputVal);
     lastSend = millis();
     Serial.println(steinhart);
   }

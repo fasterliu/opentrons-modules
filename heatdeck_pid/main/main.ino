@@ -6,7 +6,7 @@
 #define KI .0003
 #define KD .05
 
-#define ZERO_DEGREES 0 //This would not work for a module that can reach 0 degrees
+#define SHUTDOWN_TEMP 0 //This would not work for a module that can reach 0 degrees
 bool tempSending = false;
 
 double temperature, setPoint, outputVal;
@@ -32,7 +32,7 @@ void loop() {
   myPID.run();
   float ran = random(0, 100)/(float)100;
   
-  if (ran < abs(outputVal) && setPoint > ZERO_DEGREES) {
+  if (ran < abs(outputVal) && setPoint > SHUTDOWN_TEMP) {
     if (outputVal > 0) { 
       heat();
     }
