@@ -7,7 +7,7 @@
 #define KD .01
 
 #define SHUTDOWN_TEMP 0 //This would not work for a module that can reach 0 degrees
-bool tempSending = true;
+bool tempSending = false;
 
 double temperature, setPoint, outputVal, fanOutput;
 PID myPID(&temperature, &outputVal, &setPoint, KP, KI, KD,  DIRECT);

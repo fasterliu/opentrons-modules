@@ -5,17 +5,6 @@ void setupFanPWM() {
   pwm25kHzBegin();
 }
 
-//void loopFan() {
-//  pwmDuty(19); // 25% (range = 0-79 = 1.25-100%)
-//  delay(10000);
-//  pwmDuty(39); // 50% (range = 0-79 = 1.25-100%)
-//  delay (10000);
-//  pwmDuty(79); // 75% (range = 0-79 = 1.25-100%)
-//  delay (10000);
-//  pwmDuty(59); // 75% (range = 0-79 = 1.25-100%)
-//  delay (10000);
-//}
-
 void pwm25kHzBegin() {
   TCCR2A = 0;                               // TC2 Control Register A
   TCCR2B = 0;                               // TC2 Control Register B
